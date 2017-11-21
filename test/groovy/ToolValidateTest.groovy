@@ -20,9 +20,11 @@ class ToolValidateTest extends PiperTestBase {
 
 
     @Before
-    void setup() {
+    void setUp() {
 
-        super._setUp()
+        println "ToolValidateTest setUp begins"
+
+        super.setUp()
 
         script = withPipeline(defaultPipeline())
 
@@ -35,6 +37,7 @@ class ToolValidateTest extends PiperTestBase {
 
         binding.setVariable('home', notEmptyDir.getAbsolutePath())
 
+        println "ToolValidateTest setUp ends"
     }
 
 

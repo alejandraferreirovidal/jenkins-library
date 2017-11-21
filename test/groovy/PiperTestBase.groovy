@@ -15,7 +15,9 @@ public class PiperTestBase extends BasePipelineTest {
 
     protected messages = [], shellCalls = []
 
-    protected final void _setUp() {
+    void setUp() {
+
+        println "PiperTestBase setUp begins"
 
         super.setUp()
 
@@ -30,6 +32,8 @@ public class PiperTestBase extends BasePipelineTest {
         })
 
         pipeline = pipelineFolder.newFile()
+
+        println "PiperTestBase setUp ends"
     }
 
     protected withPipeline(p) {
