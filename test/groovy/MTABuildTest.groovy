@@ -22,9 +22,6 @@ import util.Rules
 
 public class MtaBuildTest extends BasePipelineTest {
 
-    def toolMtaValidateCalled = false
-    def toolJavaValidateCalled = false
-
     @ClassRule
     public static TemporaryFolder tmp = new TemporaryFolder()
 
@@ -43,18 +40,29 @@ public class MtaBuildTest extends BasePipelineTest {
         .around(jsr)
         .around(jer)
 
+    private toolMtaValidateCalled
+    private toolJavaValidateCalled
+
     private static currentDir
     private static newDir
     private static mtaYaml
+
+    private static mtaJarLocation
+
 
     @BeforeClass
     static void createTestFiles() {
 
         currentDir = "${tmp.getRoot()}"
+        tmp.newFolder('bin')
+        tmp.newFolder('bin', 'java')
         mtaYaml = tmp.newFile('mta.yaml')
         newDir = "$currentDir/newDir"
         tmp.newFolder('newDir')
         tmp.newFile('newDir/mta.yaml') << defaultMtaYaml()
+
+        mtaJarLocation = currentDir
+        tmp.newFile('mta.jar')
     }
 
     @Before
@@ -62,25 +70,13 @@ public class MtaBuildTest extends BasePipelineTest {
         mtaYaml.text = defaultMtaYaml()
 
         helper.registerAllowedMethod('pwd', [], { currentDir } )
+        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
 
         binding.setVariable('PATH', '/usr/bin')
+        binding.setVariable('env', [JAVA_HOME: "$currentDir"])
 
-        //
-        // needs to be after loading the scripts. Here we have a different behaviour
-        // for usual steps and for steps contained in the shared lib itself.
-        //
-        // toolValidate mocked here since we are not interested in testing
-        // toolValidate here. This is expected to be done in a test class for
-        // toolValidate.
-        //
-        helper.registerAllowedMethod('toolValidate', [Map], { m ->
-
-                                                              if(m.tool == 'mta')
-                                                                  toolMtaValidateCalled = true
-
-                                                              if(m.tool == 'java')
-                                                                  toolJavaValidateCalled = true
-                                                            })
+        toolMtaValidateCalled = false
+        toolJavaValidateCalled = false
     }
 
 
@@ -130,22 +126,26 @@ public class MtaBuildTest extends BasePipelineTest {
     @Test
     void mtaJarLocationNotSetTest() {
 
+        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
+
         jsr.step.call(buildTarget: 'NEO')
 
         assert jscr.shell.find { c -> c.contains(' -jar mta.jar --mtar ')}
 
-        assert jlr.log.contains('[mtaBuild] Using MTA JAR from current working directory.')
+        assert jlr.log.contains("SAP Multitarget Application Archive Builder expected on PATH.")
+        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable 'mta.jar'.")
     }
 
 
     @Test
     void mtaJarLocationAsParameterTest() {
 
-        jsr.step.call(mtaJarLocation: '/mylocation/mta', buildTarget: 'NEO')
+        jsr.step.call(mtaJarLocation: "$mtaJarLocation", buildTarget: 'NEO')
 
-        assert jscr.shell.find { c -> c.contains(' -jar /mylocation/mta/mta.jar --mtar ')}
+        assert jscr.shell.find { c -> c.contains("-jar $mtaJarLocation/mta.jar --mtar")}
 
-        assert jlr.log.contains('[mtaBuild] MTA JAR "/mylocation/mta/mta.jar" retrieved from configuration.')
+        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '$mtaJarLocation' retrieved from configuration.")
+        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '$mtaJarLocation/mta.jar'.")
     }
 
 
@@ -186,26 +186,27 @@ public class MtaBuildTest extends BasePipelineTest {
     @Test
     void mtaJarLocationFromEnvironmentTest() {
 
-        binding.setVariable('env', [:])
-        binding.getVariable('env')['MTA_JAR_LOCATION'] = '/env/mta'
+        binding.setVariable('env', [JAVA_HOME: "$currentDir", MTA_JAR_LOCATION: "$currentDir"])
 
         jsr.step.call(buildTarget: 'NEO')
 
-        assert jscr.shell.find { c -> c.contains('-jar /env/mta/mta.jar --mtar')}
-        assert jlr.log.contains('[mtaBuild] MTA JAR "/env/mta/mta.jar" retrieved from environment.')
+        assert jscr.shell.find { c -> c.contains("-jar $mtaJarLocation/mta.jar --mtar")}
+        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '$mtaJarLocation' retrieved from environment.")
+        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '$mtaJarLocation/mta.jar'.")
     }
 
 
     @Test
     void mtaJarLocationFromCustomStepConfigurationTest() {
 
-        jer.env.configuration = [steps:[mtaBuild:[mtaJarLocation: '/step/mta']]]
+        jer.env.configuration = [steps:[mtaBuild:[mtaJarLocation: "$mtaJarLocation"]]]
 
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                       buildTarget: 'NEO')
 
-        assert jscr.shell.find(){ c -> c.contains('-jar /step/mta/mta.jar --mtar')}
-        assert jlr.log.contains('[mtaBuild] MTA JAR "/step/mta/mta.jar" retrieved from configuration.')
+        assert jscr.shell.find(){ c -> c.contains("-jar $mtaJarLocation/mta.jar --mtar")}
+        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '$mtaJarLocation' retrieved from configuration.")
+        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '$mtaJarLocation/mta.jar'.")
     }
 
 
@@ -242,7 +243,7 @@ public class MtaBuildTest extends BasePipelineTest {
     @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
     @Test
     void skipValidationInCaseMtarJarFileIsUsedFromWorkingDir() {
-        jscr.setReturnValue('ls mta.jar', 0)
+        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
         jsr.step.call(script: [commonPipelineEnvironment: jer.env])
         assert !toolMtaValidateCalled
     }
@@ -268,7 +269,8 @@ public class MtaBuildTest extends BasePipelineTest {
     @Test
     void toolValidateNotCalledWhenJavaHomeIsUnsetButJavaIsInPath() {
 
-        jscr.setReturnValue('which java', 0)
+        binding.setVariable('env', [:])
+        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
         jsr.step.call(buildTarget: 'NEO')
 
         assert !toolJavaValidateCalled
@@ -335,5 +337,18 @@ public class MtaBuildTest extends BasePipelineTest {
                       builder: grunt
                 build-result: dist
                 '''
+    }
+
+    private getVersion(Map m) {
+
+        if(m.script.contains('java -version')) {
+            toolJavaValidateCalled = true
+            return '''openjdk version \"1.8.0_121\"
+                    OpenJDK Runtime Environment (build 1.8.0_121-8u121-b13-1~bpo8+1-b13)
+                    OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''
+        } else if(m.script.contains('mta.jar -v')) {
+            toolMtaValidateCalled = true
+            return '1.0.6'
+        }
     }
 }

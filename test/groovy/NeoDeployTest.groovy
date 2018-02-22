@@ -22,8 +22,6 @@ import util.Rules
 
 class NeoDeployTest extends BasePipelineTest {
 
-    def toolJavaValidateCalled = false
-
     @ClassRule
     public static TemporaryFolder tmp = new TemporaryFolder()
 
@@ -42,12 +40,16 @@ class NeoDeployTest extends BasePipelineTest {
         .around(jsr)
         .around(jer)
 
-    def toolNeoValidateCalled = false
+    private toolJavaValidateCalled
+    private toolNeoValidateCalled
 
     private static workspacePath
     private static warArchiveName
     private static propertiesFileName
     private static archiveName
+
+    private static neoHome
+
 
     @BeforeClass
     static void createTestFiles() {
@@ -60,6 +62,10 @@ class NeoDeployTest extends BasePipelineTest {
         tmp.newFile(warArchiveName) << 'dummy war archive'
         tmp.newFile(propertiesFileName) << 'dummy properties file'
         tmp.newFile(archiveName) << 'dummy archive'
+
+        neoHome = workspacePath
+        tmp.newFolder('tools')
+        tmp.newFile('tools/neo.sh')
     }
 
     @Before
@@ -84,26 +90,12 @@ class NeoDeployTest extends BasePipelineTest {
             }
 
         })
-
-        binding.setVariable('env', ['NEO_HOME':'/opt/neo'])
+        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
 
         jer.env.configuration = [steps:[neoDeploy: [host: 'test.deploy.host.com', account: 'trialuser123']]]
 
-        //
-        // needs to be after loading the scripts. Here we have a different behaviour
-        // for usual steps and for steps contained in the shared lib itself.
-        //
-        // toolValidate mocked here since we are not interested in testing
-        // toolValidate here. This is expected to be done in a test class for
-        // toolValidate.
-        //
-        helper.registerAllowedMethod('toolValidate', [Map], { m ->
-
-                                                                  if(m.tool == 'neo')
-                                                                      toolNeoValidateCalled = true
-                                                                  if(m.tool == 'java')
-                                                                      toolJavaValidateCalled = true
-                                                            })
+        toolJavaValidateCalled = false
+        toolNeoValidateCalled = false
     }
 
 
@@ -119,7 +111,7 @@ class NeoDeployTest extends BasePipelineTest {
                        neoCredentialsId: 'myCredentialsId'
         )
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" deploy-mta --host 'test\.deploy\.host\.com' --account 'trialuser123' --synchronous --user 'anonymous' --password '\*\*\*\*\*\*\*\*' --source ".*"/}
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" deploy-mta --host 'test\.deploy\.host\.com' --account 'trialuser123' --synchronous --user 'anonymous' --password '\*\*\*\*\*\*\*\*' --source ".*"/}
     }
 
     @Test
@@ -130,7 +122,7 @@ class NeoDeployTest extends BasePipelineTest {
             neoCredentialsId: 'myCredentialsId'
         )
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" deploy-mta --host 'test\.deploy\.host\.com' --account 'trialuser123' --synchronous --user 'anonymous' --password '\*\*\*\*\*\*\*\*' --source ".*"/}
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" deploy-mta --host 'test\.deploy\.host\.com' --account 'trialuser123' --synchronous --user 'anonymous' --password '\*\*\*\*\*\*\*\*' --source ".*"/}
     }
 
     @Test
@@ -147,7 +139,7 @@ class NeoDeployTest extends BasePipelineTest {
             neoCredentialsId: 'myCredentialsId'
         )
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" deploy-mta --host 'configuration-frwk\.deploy\.host\.com' --account 'configurationFrwkUser123' --synchronous --user 'anonymous' --password '\*\*\*\*\*\*\*\*' --source ".*"/}
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" deploy-mta --host 'configuration-frwk\.deploy\.host\.com' --account 'configurationFrwkUser123' --synchronous --user 'anonymous' --password '\*\*\*\*\*\*\*\*' --source ".*"/}
     }
 
 
@@ -171,22 +163,21 @@ class NeoDeployTest extends BasePipelineTest {
                        archivePath: archiveName
         )
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" deploy-mta --host 'test\.deploy\.host\.com' --account 'trialuser123' --synchronous --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*"/ }
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" deploy-mta --host 'test\.deploy\.host\.com' --account 'trialuser123' --synchronous --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*"/ }
     }
 
 
     @Test
     void neoHomeNotSetTest() {
 
-        binding.setVariable('env', [:])
-
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                        archivePath: archiveName
         )
 
-        assert jscr.shell.find { c -> c.contains('which neo.sh') }
+        //assert jscr.shell.find { c -> c.contains('which neo.sh') }
         assert jscr.shell.find { c -> c.contains('"neo.sh" deploy-mta') }
-        assert jlr.log.contains('Using Neo executable from PATH.')
+        assert jlr.log.contains('SAP Cloud Platform Console Client expected on PATH.')
+        assert jlr.log.contains("Using SAP Cloud Platform Console Client executable 'neo.sh'.")
     }
 
 
@@ -196,37 +187,42 @@ class NeoDeployTest extends BasePipelineTest {
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                        archivePath: archiveName,
                        neoCredentialsId: 'myCredentialsId',
-                       neoHome: '/etc/neo'
+                       neoHome: neoHome
         )
 
-        assert jscr.shell.find{ c -> c = '"/etc/neo/tools/neo.sh" deploy-mta' }
-        assert jlr.log.contains('[neoDeploy] Neo executable "/etc/neo/tools/neo.sh" retrieved from configuration.')
+        assert jscr.shell.find{ c -> c = "\"$neoHome/tools/neo.sh\" deploy-mta" }
+        assert jlr.log.contains("SAP Cloud Platform Console Client home '$neoHome' retrieved from configuration.")
+        assert jlr.log.contains("Using SAP Cloud Platform Console Client executable '$neoHome/tools/neo.sh'.")
     }
 
 
     @Test
     void neoHomeFromEnvironmentTest() {
 
+        binding.setVariable('env', ['NEO_HOME': neoHome])
+
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                        archivePath: archiveName
         )
 
-        assert jscr.shell.find { c -> c.contains('"/opt/neo/tools/neo.sh" deploy-mta')}
-        assert jlr.log.contains('[neoDeploy] Neo executable "/opt/neo/tools/neo.sh" retrieved from environment.')
+        assert jscr.shell.find { c -> c.contains("\"$neoHome/tools/neo.sh\" deploy-mta")}
+        assert jlr.log.contains("SAP Cloud Platform Console Client home '$neoHome' retrieved from environment.")
+        assert jlr.log.contains("Using SAP Cloud Platform Console Client executable '$neoHome/tools/neo.sh'.")
     }
 
 
     @Test
     void neoHomeFromCustomStepConfigurationTest() {
 
-        jer.env.configuration = [steps:[neoDeploy: [host: 'test.deploy.host.com', account: 'trialuser123', neoHome: '/step/neo']]]
+        jer.env.configuration = [steps:[neoDeploy: [host: 'test.deploy.host.com', account: 'trialuser123', neoHome: neoHome]]]
 
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                        archivePath: archiveName
         )
 
-        assert jscr.shell.find { c -> c = '"/step/neo/tools/neo.sh" deploy-mta'}
-        assert jlr.log.contains('[neoDeploy] Neo executable "/step/neo/tools/neo.sh" retrieved from configuration.')
+        assert jscr.shell.find { c -> c = "\"$neoHome/tools/neo.sh\" deploy-mta"}
+        assert jlr.log.contains("SAP Cloud Platform Console Client home '$neoHome' retrieved from configuration.")
+        assert jlr.log.contains("Using SAP Cloud Platform Console Client executable '$neoHome/tools/neo.sh'.")
     }
 
 
@@ -267,7 +263,7 @@ class NeoDeployTest extends BasePipelineTest {
 
         jsr.step.call(script: [commonPipelineEnvironment: jer.env], archivePath: archiveName, deployMode: 'mta')
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" deploy-mta --host 'test\.deploy\.host\.com' --account 'trialuser123' --synchronous --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*"/}
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" deploy-mta --host 'test\.deploy\.host\.com' --account 'trialuser123' --synchronous --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*"/}
     }
 
     @Test
@@ -282,7 +278,7 @@ class NeoDeployTest extends BasePipelineTest {
                              warAction: 'deploy',
                              archivePath: warArchiveName)
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" deploy --host 'test\.deploy\.host\.com' --account 'trialuser123' --application 'testApp' --runtime 'neo-javaee6-wp' --runtime-version '2\.125' --size 'lite' --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*\.war"/}
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" deploy --host 'test\.deploy\.host\.com' --account 'trialuser123' --application 'testApp' --runtime 'neo-javaee6-wp' --runtime-version '2\.125' --size 'lite' --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*\.war"/}
     }
 
     @Test
@@ -297,7 +293,7 @@ class NeoDeployTest extends BasePipelineTest {
                              warAction: 'rolling-update',
                              vmSize: 'lite')
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" rolling-update --host 'test\.deploy\.host\.com' --account 'trialuser123' --application 'testApp' --runtime 'neo-javaee6-wp' --runtime-version '2\.125' --size 'lite' --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*\.war"/}
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" rolling-update --host 'test\.deploy\.host\.com' --account 'trialuser123' --application 'testApp' --runtime 'neo-javaee6-wp' --runtime-version '2\.125' --size 'lite' --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*\.war"/}
     }
 
     @Test
@@ -313,7 +309,7 @@ class NeoDeployTest extends BasePipelineTest {
                              warAction: 'deploy',
                              vmSize: 'lite')
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" deploy .*\.properties --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*\.war"/}
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" deploy .*\.properties --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*\.war"/}
     }
 
     @Test
@@ -329,7 +325,7 @@ class NeoDeployTest extends BasePipelineTest {
                              warAction: 'rolling-update',
                              vmSize: 'lite')
 
-        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "\/opt\/neo\/tools\/neo\.sh" rolling-update .*\.properties --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*\.war"/}
+        assert jscr.shell.find { c -> c =~ /#!\/bin\/bash "neo\.sh" rolling-update .*\.properties --user 'defaultUser' --password '\*\*\*\*\*\*\*\*' --source ".*\.war"/}
     }
 
     @Test
@@ -451,8 +447,8 @@ class NeoDeployTest extends BasePipelineTest {
     @Test
     void skipValidationWhenNeoToolsetIsInPathButNeoHomeNotProvidedViaConfigNorEnvironment() {
 
-        binding.setVariable('env', [:])
-        jscr.setReturnValue('which neo.sh', 0)
+        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
+        jsr.step.envProps = [:] // make sure we are not confused by JAVA_HOME in current env props.
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                                archivePath: archiveName,
                                neoCredentialsId: 'myCredentialsId'
@@ -464,7 +460,6 @@ class NeoDeployTest extends BasePipelineTest {
     @Test
     void performValidationWhenNeoToolsetIsNotInPathAndNeoHomeNotProvidedViaConfigNorEnvironment() {
 
-        binding.setVariable('env', [:])
         jscr.setReturnValue('which neo.sh', 1)
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                                archivePath: archiveName,
@@ -488,7 +483,7 @@ class NeoDeployTest extends BasePipelineTest {
     @Test
     void toolValidateSkippedIfJavaHomeNotSetButJavaInPath() {
 
-        jscr.setReturnValue('which java', 0)
+        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
         jsr.step.envProps = [:] // make sure we are not confused by JAVA_HOME in current env props.
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                                archivePath: archiveName,
@@ -496,5 +491,20 @@ class NeoDeployTest extends BasePipelineTest {
 
         assert ! toolJavaValidateCalled
         assert jlr.log.contains('Skipping tool validate check (java). Java executable in path, but no JAVA_HOME found.')
+    }
+
+    private getVersion(Map m) {
+
+        if(m.script.contains('java -version')) {
+            toolJavaValidateCalled = true
+            return '''openjdk version \"1.8.0_121\"
+                    OpenJDK Runtime Environment (build 1.8.0_121-8u121-b13-1~bpo8+1-b13)
+                    OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''
+        } else if(m.script.contains('neo.sh version')) {
+            toolNeoValidateCalled = true
+            return '''SAP Cloud Platform Console Client
+                    SDK version    : 3.39.10
+                    Runtime        : neo-java-web'''
+        }
     }
 }
