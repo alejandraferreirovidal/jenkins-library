@@ -18,9 +18,20 @@ class ToolVerifier implements Serializable {
         return home
     }
 
+    def static verifyToolExecutable(tool, script, configuration, environment) {
+
+        def home = verifyToolHome(tool, script, configuration, environment)
+        def executable = ToolUtils.getToolExecutable(tool, script, home)
+        if (home) {
+            script.echo "Verifying $tool.name executable."
+            FileUtils.validateFile(executable)
+        }
+        return executable
+    }
+
     def static verifyToolVersion(tool, script, configuration, environment) {
 
-        def executable = ToolUtils.getToolExecutable(tool, script, configuration, environment)
+        def executable = verifyToolExecutable(tool, script, configuration, environment)
         if (tool.name == 'SAP Multitarget Application Archive Builder') executable = "$environment.JAVA_HOME/bin/java -jar $executable"
 
         script.echo "Verifying $tool.name version $tool.version or compatible version."
