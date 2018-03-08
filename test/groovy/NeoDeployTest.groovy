@@ -40,8 +40,6 @@ class NeoDeployTest extends BasePipelineTest {
         .around(jsr)
         .around(jer)
 
-    private toolJavaValidateCalled
-
     private static workspacePath
     private static warArchiveName
     private static propertiesFileName
@@ -92,8 +90,6 @@ class NeoDeployTest extends BasePipelineTest {
         helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
 
         jer.env.configuration = [steps:[neoDeploy: [host: 'test.deploy.host.com', account: 'trialuser123']]]
-
-        toolJavaValidateCalled = false
     }
 
 
@@ -441,35 +437,9 @@ class NeoDeployTest extends BasePipelineTest {
     }
 
 
-    @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
-    @Test
-    void toolJavaValidateCalled() {
-
-        jsr.step.call(script: [commonPipelineEnvironment: jer.env],
-                               archivePath: archiveName,
-                               neoCredentialsId: 'myCredentialsId')
-
-        assert toolJavaValidateCalled
-    }
-
-    @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
-    @Test
-    void toolValidateSkippedIfJavaHomeNotSetButJavaInPath() {
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
-        jsr.step.envProps = [:] // make sure we are not confused by JAVA_HOME in current env props.
-        jsr.step.call(script: [commonPipelineEnvironment: jer.env],
-                               archivePath: archiveName,
-                               neoCredentialsId: 'myCredentialsId')
-
-        assert ! toolJavaValidateCalled
-        assert jlr.log.contains('Skipping tool validate check (java). Java executable in path, but no JAVA_HOME found.')
-    }
-
     private getVersion(Map m) {
 
         if(m.script.contains('java -version')) {
-            toolJavaValidateCalled = true
             return '''openjdk version \"1.8.0_121\"
                     OpenJDK Runtime Environment (build 1.8.0_121-8u121-b13-1~bpo8+1-b13)
                     OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''

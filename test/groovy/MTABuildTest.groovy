@@ -40,8 +40,6 @@ public class MtaBuildTest extends BasePipelineTest {
         .around(jsr)
         .around(jer)
 
-    private toolJavaValidateCalled
-
     private static currentDir
     private static newDir
     private static mtaYaml
@@ -73,8 +71,6 @@ public class MtaBuildTest extends BasePipelineTest {
 
         binding.setVariable('PATH', '/usr/bin')
         binding.setVariable('env', [JAVA_HOME: "$currentDir"])
-
-        toolJavaValidateCalled = false
     }
 
 
@@ -237,28 +233,6 @@ public class MtaBuildTest extends BasePipelineTest {
     }
 
 
-    @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
-    @Test
-    void toolJavaValidateCalled() {
-
-        jsr.step.call(buildTarget: 'NEO')
-
-        assert toolJavaValidateCalled
-    }
-
-
-    @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
-    @Test
-    void toolValidateNotCalledWhenJavaHomeIsUnsetButJavaIsInPath() {
-
-        binding.setVariable('env', [:])
-        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
-        jsr.step.call(buildTarget: 'NEO')
-
-        assert !toolJavaValidateCalled
-        assert jlr.log.contains('Tool validation (java) skipped. JAVA_HOME not set, but java executable in path.')
-    }
-
     private static defaultMtaYaml() {
         return  '''
                 _schema-version: "2.0.0"
@@ -324,7 +298,6 @@ public class MtaBuildTest extends BasePipelineTest {
     private getVersion(Map m) {
 
         if(m.script.contains('java -version')) {
-            toolJavaValidateCalled = true
             return '''openjdk version \"1.8.0_121\"
                     OpenJDK Runtime Environment (build 1.8.0_121-8u121-b13-1~bpo8+1-b13)
                     OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''
