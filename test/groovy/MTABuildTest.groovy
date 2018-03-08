@@ -40,7 +40,6 @@ public class MtaBuildTest extends BasePipelineTest {
         .around(jsr)
         .around(jer)
 
-    private toolMtaValidateCalled
     private toolJavaValidateCalled
 
     private static currentDir
@@ -75,7 +74,6 @@ public class MtaBuildTest extends BasePipelineTest {
         binding.setVariable('PATH', '/usr/bin')
         binding.setVariable('env', [JAVA_HOME: "$currentDir"])
 
-        toolMtaValidateCalled = false
         toolJavaValidateCalled = false
     }
 
@@ -125,8 +123,6 @@ public class MtaBuildTest extends BasePipelineTest {
 
     @Test
     void mtaJarLocationNotSetTest() {
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
 
         jsr.step.call(buildTarget: 'NEO')
 
@@ -240,21 +236,6 @@ public class MtaBuildTest extends BasePipelineTest {
         assert jscr.shell.find { c -> c.contains('java -jar mta.jar --mtar com.mycompany.northwind.mtar --build-target=NEO build')}
     }
 
-    @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
-    @Test
-    void skipValidationInCaseMtarJarFileIsUsedFromWorkingDir() {
-        helper.registerAllowedMethod('sh', [Map], { Map m -> return 0 })
-        jsr.step.call(script: [commonPipelineEnvironment: jer.env])
-        assert !toolMtaValidateCalled
-    }
-
-    @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
-    @Test
-    void performValidationInCaseMtarJarFileIsNotUsedFromWorkingDir() {
-        jscr.setReturnValue('ls mta.jar', 1)
-        jsr.step.call(script: [commonPipelineEnvironment: jer.env])
-        assert toolMtaValidateCalled
-    }
 
     @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
     @Test
@@ -264,6 +245,7 @@ public class MtaBuildTest extends BasePipelineTest {
 
         assert toolJavaValidateCalled
     }
+
 
     @Ignore('Tool validation disabled since it does not work properly in conjunction with slaves.')
     @Test
@@ -347,7 +329,6 @@ public class MtaBuildTest extends BasePipelineTest {
                     OpenJDK Runtime Environment (build 1.8.0_121-8u121-b13-1~bpo8+1-b13)
                     OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''
         } else if(m.script.contains('mta.jar -v')) {
-            toolMtaValidateCalled = true
             return '1.0.6'
         }
     }
