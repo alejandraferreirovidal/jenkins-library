@@ -6,7 +6,6 @@ import com.sap.piper.tools.ToolUtils
 
 import groovy.transform.Field
 
-@Field def DEFAULT_MTA_JAR_NAME = 'mta.jar'
 
 def call(Map parameters = [:]) {
 
@@ -35,16 +34,7 @@ def call(Map parameters = [:]) {
 
         def mta = new Tool('SAP Multitarget Application Archive Builder', 'MTA_JAR_LOCATION', 'mtaJarLocation', '/', 'mta.jar', '1.0.6', '-v')
 
-        MTA_JAR_FILE_VALIDATE: {
-            // same order like inside getMtaJar,
-            def mtaJarLocation = configuration?.mtaJarLocation ?: env?.MTA_JAR_LOCATION
-            def returnCodeLsMtaJar = sh script: "ls ${DEFAULT_MTA_JAR_NAME}", returnStatus:true
-            if(mtaJarLocation || ( !mtaJarLocation && returnCodeLsMtaJar != 0)) {
-                ToolVerifier.verifyToolVersion(mta, this, configuration, env)
-            } else {
-                echo "mta toolset (${DEFAULT_MTA_JAR_NAME}) has been found in current working directory. Using this version without further tool validation."
-            }
-        }
+        ToolVerifier.verifyToolVersion(mta, this, configuration, env)
 
         JAVA_HOME_CHECK : {
 
