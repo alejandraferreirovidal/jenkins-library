@@ -1,7 +1,5 @@
 package com.sap.piper.tools
 
-import org.junit.BeforeClass
-import org.junit.ClassRule
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -22,9 +20,6 @@ import hudson.AbortException
 
 class ToolVerifierTest extends BasePipelineTest {
 
-    @ClassRule
-    public static TemporaryFolder tmp = new TemporaryFolder()
-
     private ExpectedException thrown = new ExpectedException().none()
     private JenkinsLoggingRule jlr = new JenkinsLoggingRule(this)
 
@@ -33,45 +28,15 @@ class ToolVerifierTest extends BasePipelineTest {
                                       .around(thrown)
                                       .around(jlr)
 
-    private static home
-    private static mtaJar
-    private static neoExecutable
-    private static cmCliExecutable
-
     private script
-    private static stepName
-    private static configuration
-    private static environment
+    private static configuration = [mtaJarLocation: 'home', neoHome: 'home', cmCliHome: 'home']
+    private static environment = [JAVA_HOME: 'home']
 
-    private static java
-    private static mta
-    private static neo
-    private static cmCli
+    private static java = new Tool('Java', 'JAVA_HOME', '', '/bin/', 'java', '1.8.0', '-version 2>&1')
+    private static mta = new Tool('SAP Multitarget Application Archive Builder', 'MTA_JAR_LOCATION', 'mtaJarLocation', '/', 'mta.jar', '1.0.6', '-v')
+    private static neo = new Tool('SAP Cloud Platform Console Client', 'NEO_HOME', 'neoHome', '/tools/', 'neo.sh', '3.39.10', 'version')
+    private static cmCli = new Tool('Change Management Command Line Interface', 'CM_CLI_HOME', 'cmCliHome', '/bin/', 'cmclient', '0.0.1', '-v')
 
-
-    @BeforeClass
-    static void createTestFiles() {
-
-        home = "${tmp.getRoot()}"
-        tmp.newFolder('bin')
-        tmp.newFolder('bin', 'java')
-        tmp.newFile('mta.jar')
-        tmp.newFolder('tools')
-        tmp.newFile('tools/neo.sh')
-        tmp.newFile('bin/cmclient')
-
-        mtaJar = "$home/mta.jar"
-        neoExecutable = "$home/tools/neo.sh"
-        cmCliExecutable = "$home/bin/cmclient"
-
-        java = new Tool('Java', 'JAVA_HOME', '', '/bin/', 'java', '1.8.0', '-version 2>&1')
-        mta = new Tool('SAP Multitarget Application Archive Builder', 'MTA_JAR_LOCATION', 'mtaJarLocation', '/', 'mta.jar', '1.0.6', '-v')
-        neo = new Tool('SAP Cloud Platform Console Client', 'NEO_HOME', 'neoHome', '/tools/', 'neo.sh', '3.39.10', 'version')
-        cmCli = new Tool('Change Management Command Line Interface', 'CM_CLI_HOME', 'cmCliHome', '/bin/', 'cmclient', '0.0.1', '-v')
-
-        configuration = [mtaJarLocation: home, neoHome: home, cmCliHome: home]
-        environment = [JAVA_HOME: home]
-    }
 
     @Before
     void init() {
@@ -216,8 +181,18 @@ class ToolVerifierTest extends BasePipelineTest {
     }
 
 
-    private getNoVersion(Map m) { 
-        throw new AbortException('script returned exit code 127')
+    private getNoVersion(Map m) {
+        if(m.script.contains('java -version')) {
+            throw new AbortException('script returned exit code 127')
+        } else if(m.script.contains('mta.jar -v')) {
+            throw new AbortException('script returned exit code 127')
+        } else if(m.script.contains('neo.sh version')) {
+            throw new AbortException('script returned exit code 127')
+        } else if(m.script.contains('cmclient -v')) {
+            throw new AbortException('script returned exit code 127')
+        } else {
+            return 1
+        }
     }
 
     private getVersion(Map m) {
@@ -234,6 +209,8 @@ class ToolVerifierTest extends BasePipelineTest {
                     Runtime        : neo-java-web'''
         } else if(m.script.contains('cmclient -v')) {
             return '0.0.1-beta-2 : fc9729964a6acf5c1cad9c6f9cd6469727625a8e'
+        } else {
+            return 1
         }
     }
 
@@ -251,6 +228,8 @@ class ToolVerifierTest extends BasePipelineTest {
                     Runtime        : neo-java-web'''
         } else if(m.script.contains('cmclient -v')) {
             return '0.0.0-beta-1 : fc9729964a6acf5c1cad9c6f9cd6469727625a8e'
+        } else {
+            return 1
         }
     }
 }

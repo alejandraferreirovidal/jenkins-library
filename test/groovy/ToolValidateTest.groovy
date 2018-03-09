@@ -1,8 +1,6 @@
 import org.apache.commons.exec.*
 import hudson.AbortException
 
-import org.junit.BeforeClass
-import org.junit.ClassRule
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -17,8 +15,6 @@ import util.JenkinsStepRule
 import util.Rules
 
 class ToolValidateTest extends BasePipelineTest {
-    @ClassRule
-    public static TemporaryFolder tmp = new TemporaryFolder()
 
     private ExpectedException thrown = new ExpectedException().none()
     private JenkinsLoggingRule jlr = new JenkinsLoggingRule(this)
@@ -31,27 +27,8 @@ class ToolValidateTest extends BasePipelineTest {
         .around(jlr)
         .around(jsr)
 
-    private static home
-    private static mtaJar
-    private static neoExecutable
-    private static cmCliExecutable
+    private static home = 'home'
 
-
-    @BeforeClass
-    static void createTestFiles() {
-
-        home = "${tmp.getRoot()}"
-        tmp.newFolder('bin')
-        tmp.newFolder('bin', 'java')
-        tmp.newFile('mta.jar')
-        tmp.newFolder('tools')
-        tmp.newFile('tools/neo.sh')
-        tmp.newFile('bin/cmclient')
-
-        mtaJar = "$home/mta.jar"
-        neoExecutable = "$home/tools/neo.sh"
-        cmCliExecutable = "$home/bin/cmclient"
-    }
 
     @Before
     void init() {
@@ -222,11 +199,23 @@ class ToolValidateTest extends BasePipelineTest {
         assert jlr.log.contains('Change Management Command Line Interface version 0.0.1 is installed.')
     }
 
+
     private getNoVersion(Map m) {
-        throw new AbortException('script returned exit code 127')
+        if(m.script.contains('java -version')) {
+            throw new AbortException('script returned exit code 127')
+        } else if(m.script.contains('mta.jar -v')) {
+            throw new AbortException('script returned exit code 127')
+        } else if(m.script.contains('neo.sh version')) {
+            throw new AbortException('script returned exit code 127')
+        } else if(m.script.contains('cmclient -v')) {
+            throw new AbortException('script returned exit code 127')
+        } else {
+            return 1
+        }
     }
 
     private getVersion(Map m) {
+
         if(m.script.contains('java -version')) {
             return '''openjdk version \"1.8.0_121\"
                     OpenJDK Runtime Environment (build 1.8.0_121-8u121-b13-1~bpo8+1-b13)
@@ -239,10 +228,13 @@ class ToolValidateTest extends BasePipelineTest {
                     Runtime        : neo-java-web'''
         } else if(m.script.contains('cmclient -v')) {
             return '0.0.1-beta-2 : fc9729964a6acf5c1cad9c6f9cd6469727625a8e'
+        } else {
+            return 1
         }
     }
 
     private getIncompatibleVersion(Map m) {
+
         if(m.script.contains('java -version')) {
             return '''openjdk version \"1.7.0_121\"
                     OpenJDK Runtime Environment (build 1.7.0_121-8u121-b13-1~bpo8+1-b13)
@@ -255,6 +247,8 @@ class ToolValidateTest extends BasePipelineTest {
                     Runtime        : neo-java-web'''
         } else if(m.script.contains('cmclient -v')) {
             return '0.0.0-beta-1 : fc9729964a6acf5c1cad9c6f9cd6469727625a8e'
+        } else {
+            return 1
         }
     }
 }

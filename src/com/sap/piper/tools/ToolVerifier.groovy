@@ -13,7 +13,7 @@ class ToolVerifier implements Serializable {
         def home = ToolUtils.getToolHome(tool, script, configuration, environment)
         if (home) { 
             script.echo "Verifying $tool.name home."
-            FileUtils.validateDirectoryIsNotEmpty(home)
+            FileUtils.validateDirectoryIsNotEmpty(script, home)
         }
         return home
     }
@@ -24,7 +24,7 @@ class ToolVerifier implements Serializable {
         def executable = ToolUtils.getToolExecutable(tool, script, home)
         if (home) {
             script.echo "Verifying $tool.name executable."
-            FileUtils.validateFile(executable)
+            FileUtils.validateFile(script, executable)
         }
         return executable
     }

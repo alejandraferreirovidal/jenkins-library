@@ -15,7 +15,7 @@ def call(Map parameters = [:]) {
         if (!tool) throw new IllegalArgumentException("The parameter 'tool' can not be null or empty.")
         if (!home) throw new IllegalArgumentException("The parameter 'home' can not be null or empty.")
 
-        FileUtils.validateDirectoryIsNotEmpty(home)
+        FileUtils.validateDirectoryIsNotEmpty(this, home)
 
         switch(tool) {
             case 'java':

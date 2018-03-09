@@ -1,23 +1,39 @@
 package com.sap.piper
 
-import org.junit.*
-import org.junit.rules.*
+import org.junit.BeforeClass
+import org.junit.ClassRule
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.ExpectedException
+import org.junit.rules.TemporaryFolder
+import org.junit.rules.RuleChain
+
+import util.Rules
+
+import com.lesfurets.jenkins.unit.BasePipelineTest
 
 import com.sap.piper.FileUtils
+
 import hudson.AbortException
 
 
-class FileUtilsTest {
+class FileUtilsTest extends BasePipelineTest {
 
     @ClassRule
     public static TemporaryFolder tmp = new TemporaryFolder()
 
+    private ExpectedException thrown = new ExpectedException()
+
     @Rule
-    public ExpectedException thrown = new ExpectedException()
+    public RuleChain rules = Rules.getCommonRules(this)
+                .around(thrown)
 
     private static emptyDir
     private static notEmptyDir
     private static file
+
+    private static script
 
     @BeforeClass
     static void createTestFiles() {
@@ -27,6 +43,12 @@ class FileUtilsTest {
         file = tmp.newFile('notEmptyDir/file').getAbsolutePath()
     }
 
+    @Before
+    void setup() {
+
+        script = loadScript('commonPipelineEnvironment.groovy').commonPipelineEnvironment
+    }
+
 
     @Test
     void nullValidateDirectoryTest() {
@@ -34,7 +56,7 @@ class FileUtilsTest {
         thrown.expect(IllegalArgumentException)
         thrown.expectMessage("The parameter 'dir' can not be null or empty.")
 
-        FileUtils.validateDirectory()
+        FileUtils.validateDirectory(script, null)
     }
 
     @Test
@@ -43,48 +65,58 @@ class FileUtilsTest {
         thrown.expect(IllegalArgumentException)
         thrown.expectMessage("The parameter 'dir' can not be null or empty.")
 
-        FileUtils.validateDirectory('')
+        FileUtils.validateDirectory(script, '')
     }
 
     @Test
     void doestNotExistValidateDirectoryTest() {
 
-        def path = new File("$emptyDir", 'test').getAbsolutePath()
+        def dir = new File("$emptyDir", 'test').getAbsolutePath()
+
+        helper.registerAllowedMethod('sh', [Map], { Map m -> validateDirectory(dir) })
 
         thrown.expect(AbortException)
-        thrown.expectMessage("'$path' does not exist.")
+        thrown.expectMessage("'$dir' does not exist.")
 
-        FileUtils.validateDirectory(path)
+        FileUtils.validateDirectory(script, dir)
     }
 
     @Test
     void isNotDirectoryValidateDirectoryTest() {
 
+        helper.registerAllowedMethod('sh', [Map], { Map m -> validateDirectory(file) })
+
         thrown.expect(AbortException)
         thrown.expectMessage("'$file' is not a directory.")
 
-        FileUtils.validateDirectory(file)
+        FileUtils.validateDirectory(script, file)
     }
 
     @Test
     void validateDirectoryTest() {
 
-        FileUtils.validateDirectory(notEmptyDir)
+        helper.registerAllowedMethod('sh', [Map], { Map m -> validateDirectory(notEmptyDir) })
+
+        FileUtils.validateDirectory(script, notEmptyDir)
     }
 
     @Test
     void emptyDirValidateDirectoryIsNotEmptyTest() {
 
+        helper.registerAllowedMethod('sh', [Map], { Map m -> validateDirectoryIsNotEmpty(emptyDir) })
+
         thrown.expect(AbortException)
         thrown.expectMessage("'$emptyDir' is empty.")
 
-        FileUtils.validateDirectoryIsNotEmpty(emptyDir)
+        FileUtils.validateDirectoryIsNotEmpty(script, emptyDir)
     }
 
     @Test
     void validateDirectoryIsNotEmptyTest() {
 
-        FileUtils.validateDirectoryIsNotEmpty(notEmptyDir)
+        helper.registerAllowedMethod('sh', [Map], { Map m -> validateDirectoryIsNotEmpty(notEmptyDir) })
+
+        FileUtils.validateDirectoryIsNotEmpty(script, notEmptyDir)
     }
 
     @Test
@@ -93,7 +125,7 @@ class FileUtilsTest {
         thrown.expect(IllegalArgumentException)
         thrown.expectMessage("The parameter 'filePath' can not be null or empty.")
 
-        FileUtils.validateFile(null)
+        FileUtils.validateFile(script, null)
     }
 
     @Test
@@ -102,7 +134,7 @@ class FileUtilsTest {
         thrown.expect(IllegalArgumentException)
         thrown.expectMessage("The parameter 'filePath' can not be null or empty.")
 
-        FileUtils.validateFile('')
+        FileUtils.validateFile(script, '')
     }
 
     @Test
@@ -110,16 +142,42 @@ class FileUtilsTest {
 
         def path = new File("$emptyDir", 'test').getAbsolutePath()
 
+        helper.registerAllowedMethod('sh', [Map], { Map m -> validateFile(path) })
+
         thrown.expect(AbortException)
         thrown.expectMessage("'$path' does not exist.")
 
-        FileUtils.validateFile(path)
+        FileUtils.validateFile(script, path)
     }
 
     @Test
     void validateFileTest() {
 
-        FileUtils.validateFile(file)
+        helper.registerAllowedMethod('sh', [Map], { Map m -> validateFile(file) })
+
+        FileUtils.validateFile(script, file)
+    }
+
+
+    private validateDirectory(dir) {
+        if (!dir) throw new IllegalArgumentException("The parameter 'dir' can not be null or empty.")
+        def file = new File(dir)
+        if (!file.exists()) throw new AbortException("'${file.getAbsolutePath()}' does not exist.")
+        if (!file.isDirectory()) throw new AbortException("'${file.getAbsolutePath()}' is not a directory.")
+        return 1
+    }
+
+    private validateDirectoryIsNotEmpty(dir) {
+        validateDirectory(dir)
+        def file = new File(dir)
+        if (file.list().size() == 0) throw new AbortException("'${file.getAbsolutePath()}' is empty.")
+        return 1
+    }
+
+    private validateFile(filePath) {
+        if (!filePath) throw new IllegalArgumentException("The parameter 'filePath' can not be null or empty.")
+        def file = new File(filePath)
+        if (!file.exists()) throw new AbortException("'${file.getAbsolutePath()}' does not exist.")
+        return 1
     }
 }
-
