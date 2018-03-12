@@ -1,5 +1,6 @@
 package com.sap.piper.tools
 
+import org.junit.BeforeClass
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -29,167 +30,84 @@ class ToolVerifierTest extends BasePipelineTest {
                                       .around(jlr)
 
     private script
-    private static configuration = [mtaJarLocation: 'home', neoHome: 'home', cmCliHome: 'home']
-    private static environment = [JAVA_HOME: 'home']
+    private static configuration
+    private static tool
 
-    private static java = new Tool('Java', 'JAVA_HOME', '', '/bin/', 'java', '1.8.0', '-version 2>&1')
-    private static mta = new Tool('SAP Multitarget Application Archive Builder', 'MTA_JAR_LOCATION', 'mtaJarLocation', '/', 'mta.jar', '1.0.6', '-v')
-    private static neo = new Tool('SAP Cloud Platform Console Client', 'NEO_HOME', 'neoHome', '/tools/', 'neo.sh', '3.39.10', 'version')
-    private static cmCli = new Tool('Change Management Command Line Interface', 'CM_CLI_HOME', 'cmCliHome', '/bin/', 'cmclient', '0.0.1', '-v')
 
+    @BeforeClass
+    static void init() {
+
+        configuration = [mtaJarLocation: 'home']
+        tool = new Tool('SAP Multitarget Application Archive Builder', 'MTA_JAR_LOCATION', 'mtaJarLocation', '/', 'mta.jar', '1.0.6', '-v')
+    }
 
     @Before
-    void init() {
+    void setup() {
 
-        script = loadScript('commonPipelineEnvironment.groovy').commonPipelineEnvironment
+        script = loadScript('mtaBuild.groovy').mtaBuild
     }
 
 
     @Test
-    void unableToVerifyJavaTest() {
+    void verifyToolHomeTest() {
 
-        thrown.expect(AbortException)
-        thrown.expectMessage('The verification of Java failed.')
+        helper.registerAllowedMethod('sh', [Map], { Map m -> getToolHome(m) })
 
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getNoVersion(m) })
+        ToolVerifier.verifyToolHome(tool, script, configuration)
 
-        ToolVerifier.verifyToolVersion(java, script, configuration, environment)
+        assert jlr.log.contains("Verifying $tool.name home '/env/mta'.")
+        assert jlr.log.contains("Verification success. $tool.name home '/env/mta' exists.")
     }
 
     @Test
-    void unableToVerifyMtaTest() {
+    void verifyToolExecutableTest() {
 
-        thrown.expect(AbortException)
-        thrown.expectMessage('The verification of SAP Multitarget Application Archive Builder failed.')
+        helper.registerAllowedMethod('sh', [Map], { Map m -> getToolHome(m) })
 
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getNoVersion(m) })
+        ToolVerifier.verifyToolExecutable(tool, script, configuration)
 
-        ToolVerifier.verifyToolVersion(mta, script, configuration, environment)
+        assert jlr.log.contains("Verifying $tool.name executable '/env/mta/mta.jar'.")
+        assert jlr.log.contains("Verification success. $tool.name executable '/env/mta/mta.jar' exists.")
     }
 
     @Test
-    void unableToVerifyNeoTest() {
-
-        thrown.expect(AbortException)
-        thrown.expectMessage('The verification of SAP Cloud Platform Console Client failed.')
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getNoVersion(m) })
-
-        ToolVerifier.verifyToolVersion(neo, script, configuration, environment)
-    }
-
-    @Test
-    void unableToVefifyCmTest() {
-
-        thrown.expect(AbortException)
-        thrown.expectMessage('The verification of Change Management Command Line Interface failed.')
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getNoVersion(m) })
-
-        ToolVerifier.verifyToolVersion(cmCli, script, configuration, environment)
-
-        script.execute()
-    }
-
-    @Test
-    void verifyIncompatibleVersionJavaTest() {
-
-        thrown.expect(AbortException)
-        thrown.expectMessage('The installed version of Java is 1.7.0.')
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getIncompatibleVersion(m) })
-
-        ToolVerifier.verifyToolVersion(java, script, configuration, environment)
-    }
-
-    @Test
-    void verifyIncompatibleVersionMtaTest() {
-
-        thrown.expect(AbortException)
-        thrown.expectMessage('The installed version of SAP Multitarget Application Archive Builder is 1.0.5.')
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getIncompatibleVersion(m) })
-
-        ToolVerifier.verifyToolVersion(mta, script, configuration, environment)
-    }
-
-    @Test
-    void verifyNeoIncompatibleVersionTest() {
-
-        thrown.expect(AbortException)
-        thrown.expectMessage('The installed version of SAP Cloud Platform Console Client is 1.126.51.')
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getIncompatibleVersion(m) })
-
-        ToolVerifier.verifyToolVersion(neo, script, configuration, environment)
-    }
-
-    @Test
-    void verifyCmIncompatibleVersionTest() {
-
-        thrown.expect(AbortException)
-        thrown.expectMessage('The installed version of Change Management Command Line Interface is 0.0.0.')
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getIncompatibleVersion(m) })
-        binding.setVariable('tool', 'cm')
-
-        ToolVerifier.verifyToolVersion(cmCli, script, configuration, environment)
-    }
-
-    @Test
-    void verifyJavaTest() {
+    void verifyToolVersionTest() {
 
         helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
 
-        ToolVerifier.verifyToolVersion(java, script, configuration, environment)
+        ToolVerifier.verifyToolVersion(tool, script, configuration)
 
-        assert jlr.log.contains('Verifying Java version 1.8.0 or compatible version.')
-        assert jlr.log.contains('Java version 1.8.0 is installed.')
+        assert jlr.log.contains("Verifying $tool.name version $tool.version or compatible version.")
+        assert jlr.log.contains("Verification success. $tool.name version $tool.version is installed.")
     }
 
     @Test
-    void verifyMtaTest() {
+    void verifyToolVersion_FailedTest() {
 
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
+        thrown.expect(AbortException)
+        thrown.expectMessage("The verification of $tool.name failed.")
 
-        ToolVerifier.verifyToolVersion(mta, script, configuration, environment)
+        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersionFailed(m) })
 
-        assert jlr.log.contains('Verifying SAP Multitarget Application Archive Builder version 1.0.6 or compatible version.')
-        assert jlr.log.contains('SAP Multitarget Application Archive Builder version 1.0.6 is installed.')
+        ToolVerifier.verifyToolVersion(tool, script, configuration)
     }
 
     @Test
-    void verifyNeoTest() {
+    void verifyToolVersion_IncompatibleVersionTest() {
 
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
+        thrown.expect(AbortException)
+        thrown.expectMessage("The installed version of $tool.name is 1.0.5.")
 
-        ToolVerifier.verifyToolVersion(neo, script, configuration, environment)
+        helper.registerAllowedMethod('sh', [Map], { Map m -> getIncompatibleVersion(m) })
 
-        assert jlr.log.contains('Verifying SAP Cloud Platform Console Client version 3.39.10 or compatible version.')
-        assert jlr.log.contains('SAP Cloud Platform Console Client version 3.39.10 is installed.')
-    }
-
-    @Test
-    void verifyCmTest() {
-
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
-
-        ToolVerifier.verifyToolVersion(cmCli, script, configuration, environment)
-
-        assert jlr.log.contains('Verifying Change Management Command Line Interface version 0.0.1 or compatible version.')
-        assert jlr.log.contains('Change Management Command Line Interface version 0.0.1 is installed.')
+        ToolVerifier.verifyToolVersion(tool, script, configuration)
     }
 
 
-    private getNoVersion(Map m) {
-        if(m.script.contains('java -version')) {
-            throw new AbortException('script returned exit code 127')
-        } else if(m.script.contains('mta.jar -v')) {
-            throw new AbortException('script returned exit code 127')
-        } else if(m.script.contains('neo.sh version')) {
-            throw new AbortException('script returned exit code 127')
-        } else if(m.script.contains('cmclient -v')) {
-            throw new AbortException('script returned exit code 127')
+    private getToolHome(Map m) {
+
+        if(m.script.contains('MTA_JAR_LOCATION')) {
+            return '/env/mta'
         } else {
             return 1
         }
@@ -197,39 +115,28 @@ class ToolVerifierTest extends BasePipelineTest {
 
     private getVersion(Map m) {
 
-        if(m.script.contains('java -version')) {
-            return '''openjdk version \"1.8.0_121\"
-                    OpenJDK Runtime Environment (build 1.8.0_121-8u121-b13-1~bpo8+1-b13)
-                    OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''
-        } else if(m.script.contains('mta.jar -v')) {
+        if(m.script.contains('mta.jar -v')) {
             return '1.0.6'
-        } else if(m.script.contains('neo.sh version')) {
-            return '''SAP Cloud Platform Console Client
-                    SDK version    : 3.39.10
-                    Runtime        : neo-java-web'''
-        } else if(m.script.contains('cmclient -v')) {
-            return '0.0.1-beta-2 : fc9729964a6acf5c1cad9c6f9cd6469727625a8e'
         } else {
-            return 1
+            return ''
+        }
+    }
+
+    private getVersionFailed(Map m) {
+
+        if(m.script.contains('mta.jar -v')) {
+            throw new AbortException('script returned exit code 127')
+        } else {
+            return ''
         }
     }
 
     private getIncompatibleVersion(Map m) {
 
-        if(m.script.contains('java -version')) {
-            return '''openjdk version \"1.7.0_121\"
-                    OpenJDK Runtime Environment (build 1.7.0_121-8u121-b13-1~bpo8+1-b13)
-                    OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''
-        } else if(m.script.contains('mta.jar -v')) {
+        if(m.script.contains('mta.jar -v')) {
             return '1.0.5'
-        } else if(m.script.contains('neo.sh version')) {
-            return '''SAP Cloud Platform Console Client
-                    SDK version    : 1.126.51
-                    Runtime        : neo-java-web'''
-        } else if(m.script.contains('cmclient -v')) {
-            return '0.0.0-beta-1 : fc9729964a6acf5c1cad9c6f9cd6469727625a8e'
         } else {
-            return 1
+            return ''
         }
     }
 }

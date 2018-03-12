@@ -1,5 +1,6 @@
 package com.sap.piper.tools
 
+import com.sap.piper.EnvironmentUtils
 import com.sap.piper.FileUtils
 import com.sap.piper.Version
 
@@ -8,31 +9,34 @@ import hudson.AbortException
 
 class ToolVerifier implements Serializable {
 
-    def static verifyToolHome(tool, script, configuration, environment) {
+    def static verifyToolHome(tool, script, configuration) {
 
-        def home = ToolUtils.getToolHome(tool, script, configuration, environment)
+        def home = ToolUtils.getToolHome(tool, script, configuration, false)
         if (home) { 
-            script.echo "Verifying $tool.name home."
+            script.echo "Verifying $tool.name home '$home'."
             FileUtils.validateDirectoryIsNotEmpty(script, home)
+            script.echo "Verification success. $tool.name home '$home' exists."
         }
-        return home
     }
 
-    def static verifyToolExecutable(tool, script, configuration, environment) {
+    def static verifyToolExecutable(tool, script, configuration) {
 
-        def home = verifyToolHome(tool, script, configuration, environment)
-        def executable = ToolUtils.getToolExecutable(tool, script, home)
+        def home = ToolUtils.getToolHome(tool, script, configuration, false)
+        def executable = ToolUtils.getToolExecutable(tool, script, configuration, false)
         if (home) {
-            script.echo "Verifying $tool.name executable."
+            script.echo "Verifying $tool.name executable '$executable'."
             FileUtils.validateFile(script, executable)
+            script.echo "Verification success. $tool.name executable '$executable' exists."
         }
-        return executable
     }
 
-    def static verifyToolVersion(tool, script, configuration, environment) {
+    def static verifyToolVersion(tool, script, configuration) {
 
-        def executable = verifyToolExecutable(tool, script, configuration, environment)
-        if (tool.name == 'SAP Multitarget Application Archive Builder') executable = "$environment.JAVA_HOME/bin/java -jar $executable"
+        def executable = ToolUtils.getToolExecutable(tool, script, configuration, false)
+        if (tool.name == 'SAP Multitarget Application Archive Builder'){
+            def javaHome = EnvironmentUtils.getEnvironmentVariable(script, 'JAVA_HOME')
+            executable = "$javaHome/bin/java -jar $executable"
+        }
 
         script.echo "Verifying $tool.name version $tool.version or compatible version."
 
@@ -46,6 +50,6 @@ class ToolVerifier implements Serializable {
         if (!version.isCompatibleVersion(new Version(tool.version))) {
           throw new AbortException("The installed version of $tool.name is ${version.toString()}. Please install version $tool.version or a compatible version.")
         }
-        script.echo "$tool.name version ${version.toString()} is installed."
+        script.echo "Verification success. $tool.name version ${version.toString()} is installed."
     }
 }

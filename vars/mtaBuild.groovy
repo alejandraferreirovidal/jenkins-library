@@ -32,11 +32,11 @@ def call(Map parameters = [:]) {
 
         def mta = new Tool('SAP Multitarget Application Archive Builder', 'MTA_JAR_LOCATION', 'mtaJarLocation', '/', 'mta.jar', '1.0.6', '-v')
 
-        ToolVerifier.verifyToolVersion(mta, this, configuration, env)
+        ToolVerifier.verifyToolVersion(mta, this, configuration)
 
         def java = new Tool('Java', 'JAVA_HOME', '', '/bin/', 'java', '1.8.0', '-version 2>&1')
 
-        ToolVerifier.verifyToolVersion(java, this, configuration, env)
+        ToolVerifier.verifyToolVersion(java, this, configuration)
 
         def mtaYaml = readYaml file: "${pwd()}/mta.yaml"
 
@@ -49,7 +49,7 @@ def call(Map parameters = [:]) {
         }
 
         def mtarFileName = "${id}.mtar"
-        def mtaJar = ToolUtils.getToolExecutable(mta, this, configuration, env)
+        def mtaJar = ToolUtils.getToolExecutable(mta, this, configuration)
         def buildTarget = configuration.buildTarget
 
         sh  """#!/bin/bash

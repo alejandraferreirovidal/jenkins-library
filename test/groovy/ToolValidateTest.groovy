@@ -27,25 +27,20 @@ class ToolValidateTest extends BasePipelineTest {
         .around(jlr)
         .around(jsr)
 
-    private static home = 'home'
-
-
-    @Before
-    void init() {
-        binding.setVariable('JAVA_HOME', home)
-    }
-
+    def home = 'home'
 
     @Test
     void nullHomeTest() {
+
         thrown.expect(IllegalArgumentException)
         thrown.expectMessage("The parameter 'home' can not be null or empty.")
 
-        jsr.step.call(tool: 'java', home: null)
+        jsr.step.call(tool: 'java')
     }
 
     @Test
     void emptyHomeTest() {
+
         thrown.expect(IllegalArgumentException)
         thrown.expectMessage("The parameter 'home' can not be null or empty.")
 
@@ -54,22 +49,25 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void nullToolTest() {
+
         thrown.expect(IllegalArgumentException)
         thrown.expectMessage("The parameter 'tool' can not be null or empty.")
 
-        jsr.step.call(tool: null)
+        jsr.step.call(home: home)
     }
 
     @Test
     void emptyToolTest() {
+
         thrown.expect(IllegalArgumentException)
         thrown.expectMessage("The parameter 'tool' can not be null or empty.")
 
-        jsr.step.call(tool: '')
+        jsr.step.call(tool: '', home: home)
     }
 
     @Test
     void invalidToolTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage("The tool 'test' is not supported.")
 
@@ -78,6 +76,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void unableToValidateJavaTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage('The verification of Java failed.')
 
@@ -88,6 +87,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void unableToValidateMtaTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage('The verification of SAP Multitarget Application Archive Builder failed.')
 
@@ -98,6 +98,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void unableToValidateNeoTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage('The verification of SAP Cloud Platform Console Client failed.')
 
@@ -108,6 +109,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void unableToValidateCmTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage('The verification of Change Management Command Line Interface failed.')
 
@@ -120,6 +122,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void validateIncompatibleVersionJavaTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage('The installed version of Java is 1.7.0.')
 
@@ -130,6 +133,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void validateIncompatibleVersionMtaTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage('The installed version of SAP Multitarget Application Archive Builder is 1.0.5.')
 
@@ -140,6 +144,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void validateNeoIncompatibleVersionTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage('The installed version of SAP Cloud Platform Console Client is 1.126.51.')
 
@@ -150,6 +155,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void validateCmIncompatibleVersionTest() {
+
         thrown.expect(AbortException)
         thrown.expectMessage('The installed version of Change Management Command Line Interface is 0.0.0.')
 
@@ -161,6 +167,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void validateJavaTest() {
+
         helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
 
         jsr.step.call(tool: 'java', home: home)
@@ -171,6 +178,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void validateMtaTest() {
+
         helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
 
         jsr.step.call(tool: 'mta', home: home)
@@ -181,6 +189,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void validateNeoTest() {
+
         helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
 
         jsr.step.call(tool: 'neo', home: home)
@@ -191,6 +200,7 @@ class ToolValidateTest extends BasePipelineTest {
 
     @Test
     void validateCmTest() {
+
         helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
 
         jsr.step.call(tool: 'cm', home: home)
@@ -200,7 +210,23 @@ class ToolValidateTest extends BasePipelineTest {
     }
 
 
+    private getToolHome(Map m) {
+
+        if(m.script.contains('JAVA_HOME')) {
+            return '/env/java'
+        } else if(m.script.contains('MTA_JAR_LOCATION')) {
+            return '/env/mta'
+        } else if(m.script.contains('NEO_HOME')) {
+            return '/env/neo'
+        } else if(m.script.contains('CM_CLI_HOME')) {
+            return '/env/cmclient'
+        } else {
+            return 1
+        }
+    }
+
     private getNoVersion(Map m) {
+
         if(m.script.contains('java -version')) {
             throw new AbortException('script returned exit code 127')
         } else if(m.script.contains('mta.jar -v')) {
@@ -210,7 +236,7 @@ class ToolValidateTest extends BasePipelineTest {
         } else if(m.script.contains('cmclient -v')) {
             throw new AbortException('script returned exit code 127')
         } else {
-            return 1
+            return getToolHome(m)
         }
     }
 
@@ -229,7 +255,7 @@ class ToolValidateTest extends BasePipelineTest {
         } else if(m.script.contains('cmclient -v')) {
             return '0.0.1-beta-2 : fc9729964a6acf5c1cad9c6f9cd6469727625a8e'
         } else {
-            return 1
+            return getToolHome(m)
         }
     }
 
@@ -248,7 +274,7 @@ class ToolValidateTest extends BasePipelineTest {
         } else if(m.script.contains('cmclient -v')) {
             return '0.0.0-beta-1 : fc9729964a6acf5c1cad9c6f9cd6469727625a8e'
         } else {
-            return 1
+            return getToolHome(m)
         }
     }
 }

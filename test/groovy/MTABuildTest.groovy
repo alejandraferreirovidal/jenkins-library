@@ -44,8 +44,6 @@ public class MtaBuildTest extends BasePipelineTest {
     private static newDir
     private static mtaYaml
 
-    private static mtaJarLocation
-
 
     @BeforeClass
     static void createTestFiles() {
@@ -57,9 +55,6 @@ public class MtaBuildTest extends BasePipelineTest {
         newDir = "$currentDir/newDir"
         tmp.newFolder('newDir')
         tmp.newFile('newDir/mta.yaml') << defaultMtaYaml()
-
-        mtaJarLocation = currentDir
-        tmp.newFile('mta.jar')
     }
 
     @Before
@@ -67,10 +62,9 @@ public class MtaBuildTest extends BasePipelineTest {
         mtaYaml.text = defaultMtaYaml()
 
         helper.registerAllowedMethod('pwd', [], { currentDir } )
-        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersion(m) })
+        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersionWithoutEnvVars(m) })
 
         binding.setVariable('PATH', '/usr/bin')
-        binding.setVariable('env', [JAVA_HOME: "$currentDir"])
     }
 
 
@@ -124,7 +118,7 @@ public class MtaBuildTest extends BasePipelineTest {
 
         assert jscr.shell.find { c -> c.contains(' -jar mta.jar --mtar ')}
 
-        assert jlr.log.contains("SAP Multitarget Application Archive Builder expected on PATH.")
+        assert jlr.log.contains("SAP Multitarget Application Archive Builder expected on PATH or current working directory.")
         assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable 'mta.jar'.")
     }
 
@@ -132,12 +126,12 @@ public class MtaBuildTest extends BasePipelineTest {
     @Test
     void mtaJarLocationAsParameterTest() {
 
-        jsr.step.call(mtaJarLocation: "$mtaJarLocation", buildTarget: 'NEO')
+        jsr.step.call(mtaJarLocation: "/param/mta", buildTarget: 'NEO')
 
-        assert jscr.shell.find { c -> c.contains("-jar $mtaJarLocation/mta.jar --mtar")}
+        assert jscr.shell.find { c -> c.contains("-jar /param/mta/mta.jar --mtar")}
 
-        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '$mtaJarLocation' retrieved from configuration.")
-        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '$mtaJarLocation/mta.jar'.")
+        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '/param/mta' retrieved from configuration.")
+        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '/param/mta/mta.jar'.")
     }
 
 
@@ -178,27 +172,27 @@ public class MtaBuildTest extends BasePipelineTest {
     @Test
     void mtaJarLocationFromEnvironmentTest() {
 
-        binding.setVariable('env', [JAVA_HOME: "$currentDir", MTA_JAR_LOCATION: "$currentDir"])
+        helper.registerAllowedMethod('sh', [Map], { Map m -> getVersionWithEnvVars(m) })
 
         jsr.step.call(buildTarget: 'NEO')
 
-        assert jscr.shell.find { c -> c.contains("-jar $mtaJarLocation/mta.jar --mtar")}
-        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '$mtaJarLocation' retrieved from environment.")
-        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '$mtaJarLocation/mta.jar'.")
+        assert jscr.shell.find { c -> c.contains("-jar /env/mta/mta.jar --mtar")}
+        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '/env/mta' retrieved from environment.")
+        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '/env/mta/mta.jar'.")
     }
 
 
     @Test
     void mtaJarLocationFromCustomStepConfigurationTest() {
 
-        jer.env.configuration = [steps:[mtaBuild:[mtaJarLocation: "$mtaJarLocation"]]]
+        jer.env.configuration = [steps:[mtaBuild:[mtaJarLocation: "/config/mta"]]]
 
         jsr.step.call(script: [commonPipelineEnvironment: jer.env],
                       buildTarget: 'NEO')
 
-        assert jscr.shell.find(){ c -> c.contains("-jar $mtaJarLocation/mta.jar --mtar")}
-        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '$mtaJarLocation' retrieved from configuration.")
-        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '$mtaJarLocation/mta.jar'.")
+        assert jscr.shell.find(){ c -> c.contains("-jar /config/mta/mta.jar --mtar")}
+        assert jlr.log.contains("SAP Multitarget Application Archive Builder home '/config/mta' retrieved from configuration.")
+        assert jlr.log.contains("Using SAP Multitarget Application Archive Builder executable '/config/mta/mta.jar'.")
     }
 
 
@@ -295,7 +289,7 @@ public class MtaBuildTest extends BasePipelineTest {
                 '''
     }
 
-    private getVersion(Map m) {
+    private getVersionWithEnvVars(Map m) {
 
         if(m.script.contains('java -version')) {
             return '''openjdk version \"1.8.0_121\"
@@ -303,6 +297,43 @@ public class MtaBuildTest extends BasePipelineTest {
                     OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''
         } else if(m.script.contains('mta.jar -v')) {
             return '1.0.6'
+        } else {
+            return getEnvVars(m)
+        }
+    }
+
+    private getVersionWithoutEnvVars(Map m) {
+
+        if(m.script.contains('java -version')) {
+            return '''openjdk version \"1.8.0_121\"
+                    OpenJDK Runtime Environment (build 1.8.0_121-8u121-b13-1~bpo8+1-b13)
+                    OpenJDK 64-Bit Server VM (build 25.121-b13, mixed mode)'''
+        } else if(m.script.contains('mta.jar -v')) {
+            return '1.0.6'
+        } else {
+            return getNoEnvVars(m)
+        }
+    }
+
+    private getEnvVars(Map m) {
+
+        if(m.script.contains('JAVA_HOME')) {
+            return '/env/java'
+        } else if(m.script.contains('MTA_JAR_LOCATION')) {
+            return '/env/mta'
+        } else {
+            return 1
+        }
+    }
+
+    private getNoEnvVars(Map m) {
+
+        if(m.script.contains('JAVA_HOME')) {
+            return ''
+        } else if(m.script.contains('MTA_JAR_LOCATION')) {
+            return ''
+        } else {
+            return 1
         }
     }
 }
