@@ -63,9 +63,9 @@ def call(Map parameters = [:]) {
         def mtaJar = mta.getToolExecutable(this, configuration)
         def buildTarget = configuration.buildTarget
 
-        sh  """#!/bin/bash
+        sh  """
             export PATH=./node_modules/.bin:${PATH}
-            java -jar ${mtaJar} --mtar ${mtarFileName} --build-target=${buildTarget} build
+            ${mtaJar} --mtar ${mtarFileName} --build-target=${buildTarget} build
             """
 
         def mtarFilePath = "${pwd()}/${mtarFileName}"
