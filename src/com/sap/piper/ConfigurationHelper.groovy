@@ -121,12 +121,7 @@ class ConfigurationHelper implements Serializable {
         return this
     }
 
-    @NonCPS // required because we have a closure in the
-            // method body that cannot be CPS transformed
-    Map use(){
-        handleValidationFailures()
-        MapUtils.traverse(config, { v -> (v instanceof GString) ? v.toString() : v })
-        if(config.verbose) step.echo "[${name}] Configuration: ${config}"
+    Map use() {
         return config
     }
 

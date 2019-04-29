@@ -356,34 +356,6 @@ class ConfigurationHelperTest {
     }
 
     @Test
-    public void testGStringsAreReplacedByJavaLangStrings() {
-        //
-        // needed in order to ensure we have real GStrings.
-        // a GString not containing variables might be optimized to
-        // a java.lang.String from the very beginning.
-        def dummy = 'Dummy',
-            aGString = "a${dummy}",
-            bGString = "b${dummy}",
-            cGString = "c${dummy}"
-
-        assert aGString instanceof GString
-        assert bGString instanceof GString
-        assert cGString instanceof GString
-
-        def config = ConfigurationHelper.newInstance(mockScript, [a: aGString,
-                                              nextLevel: [b: bGString]])
-                     .mixin([c : cGString])
-                     .use()
-
-        assert config == [a: 'aDummy',
-                          c: 'cDummy',
-                       nextLevel: [b: 'bDummy']]
-        assert config.a instanceof java.lang.String
-        assert config.c instanceof java.lang.String
-        assert config.nextLevel.b instanceof java.lang.String
-    }
-
-    @Test
     public void testWithMandatoryParameterCollectFailuresAllParamtersArePresentResultsInNoExceptionThrown() {
         ConfigurationHelper.newInstance(mockScript, [myKey1: 'a', myKey2: 'b'])
                                    .collectValidationFailures()
