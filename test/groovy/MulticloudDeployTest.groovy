@@ -110,8 +110,7 @@ class MulticloudDeployTest extends BasePiperTest {
         thrown.expectMessage('Deployment skipped because no targets defined!')
 
         stepRule.step.multicloudDeploy(
-            script: nullScript,
-            stage: 'test'
+            script: nullScript
         )
     }
 
@@ -125,8 +124,7 @@ class MulticloudDeployTest extends BasePiperTest {
         thrown.expectMessage('ERROR - NO VALUE AVAILABLE FOR source')
 
         stepRule.step.multicloudDeploy(
-            script: nullScript,
-            stage: 'test'
+            script: nullScript
         )
     }
 
@@ -138,7 +136,6 @@ class MulticloudDeployTest extends BasePiperTest {
 
         stepRule.step.multicloudDeploy(
             script: nullScript,
-            stage: 'test',
             source: 'file.mtar'
         )
 
@@ -162,7 +159,6 @@ class MulticloudDeployTest extends BasePiperTest {
 
         stepRule.step.multicloudDeploy(
             script: nullScript,
-            stage: 'test',
             neoTargets: [neoParam],
             source: 'file.mtar',
             enableZeroDowntimeDeployment: true
@@ -190,7 +186,6 @@ class MulticloudDeployTest extends BasePiperTest {
 
         stepRule.step.multicloudDeploy([
             script: nullScript,
-            stage: 'acceptance',
             cfTargets: [cloudFoundry]
         ])
 
@@ -209,7 +204,6 @@ class MulticloudDeployTest extends BasePiperTest {
 
         stepRule.step.multicloudDeploy([
             script: nullScript,
-            stage: 'acceptance',
             enableZeroDowntimeDeployment: true
         ])
 
@@ -225,7 +219,6 @@ class MulticloudDeployTest extends BasePiperTest {
 
         stepRule.step.multicloudDeploy([
             script: nullScript,
-            stage: 'acceptance',
             enableZeroDowntimeDeployment: true,
             source: 'file.mtar'
         ])

@@ -22,24 +22,21 @@ import static com.sap.piper.Prerequisites.checkScript
 @Field Set STEP_CONFIG_KEYS = []
 
 @Field Set PARAMETER_KEYS = GENERAL_CONFIG_KEYS.plus([
-    /** The stage name. If the stage name is not provided, it will be taken from the environment variable 'STAGE_NAME'.*/
-    'stage',
     /** Defines the deployment type.*/
     'enableZeroDowntimeDeployment',
-    /** The source file to deploy to the SAP Cloud Platform.*/
+    /** Executes the deployments in parallel.*/
+    'parallelExecution',
+    /** The source file to deploy to SAP Cloud Platform.*/
     'source'
 ])
 
 /**
- * Deploys an application to multiple platforms (cloudFoundry, SAP Cloud Platform) or to multiple instances of multiple platforms or the same platform.
+ * Deploys an application to multiple platforms (Cloud Foundry, SAP Cloud Platform) or to multiple instances of multiple platforms or the same platform.
  */
 @GenerateDocumentation
 void call(parameters = [:]) {
 
     handlePipelineStepErrors(stepName: STEP_NAME, stepParameters: parameters) {
-
-        def stageName = parameters.stage ?: env.STAGE_NAME
-        def enableZeroDowntimeDeployment = parameters.enableZeroDowntimeDeployment ?: false
 
         def script = checkScript(this, parameters) ?: this
         def utils = parameters.utils ?: new Utils()
@@ -57,10 +54,8 @@ void call(parameters = [:]) {
 
         utils.pushToSWA([
             step: STEP_NAME,
-            stepParamKey1: 'stage',
-            stepParam1: stageName,
-            stepParamKey2: 'enableZeroDowntimeDeployment',
-            stepParam2: enableZeroDowntimeDeployment
+            stepParamKey1: 'enableZeroDowntimeDeployment',
+            stepParam1: config.enableZeroDowntimeDeployment
         ], config)
 
         def index = 1
@@ -68,9 +63,13 @@ void call(parameters = [:]) {
         def deploymentType
         def deployTool
 
+        if (!config.cfTargets && !config.neoTargets) {
+            error "Deployment skipped because no targets defined!"
+        }
+
         if (config.cfTargets) {
 
-            deploymentType = DeploymentType.selectFor(CloudPlatform.CLOUD_FOUNDRY, enableZeroDowntimeDeployment).toString()
+            deploymentType = DeploymentType.selectFor(CloudPlatform.CLOUD_FOUNDRY, config.enableZeroDowntimeDeployment).toString()
             deployTool = script.commonPipelineEnvironment.configuration.isMta ? 'mtaDeployPlugin' : 'cf_native'
 
             for (int i = 0; i < config.cfTargets.size(); i++) {
@@ -90,15 +89,15 @@ void call(parameters = [:]) {
                     )
 
                 }
-                setDeployment(deployments, deployment, index, script, stageName)
+                setDeployment(deployments, deployment, index)
                 index++
             }
-            utils.runClosures(deployments)
+            runDeployments(utils, config.parallelExecution, deployments)
         }
 
         if (config.neoTargets) {
 
-            deploymentType = DeploymentType.selectFor(CloudPlatform.NEO, enableZeroDowntimeDeployment)
+            deploymentType = DeploymentType.selectFor(CloudPlatform.NEO, config.enableZeroDowntimeDeployment)
 
             for (int i = 0; i < config.neoTargets.size(); i++) {
 
@@ -114,28 +113,26 @@ void call(parameters = [:]) {
                     )
 
                 }
-                setDeployment(deployments, deployment, index, script, stageName)
+                setDeployment(deployments, deployment, index)
                 index++
             }
-            utils.runClosures(deployments)
         }
 
-        if (!config.cfTargets && !config.neoTargets) {
-            error "Deployment skipped because no targets defined!"
-        }
+        runDeployments(utils, config.parallelExecution, deployments)
     }
 }
 
-void setDeployment(deployments, deployment, index, script, stageName) {
+void setDeployment(deployments, deployment, index) {
     deployments["Deployment ${index > 1 ? index : ''}"] = {
-        if (env.POD_NAME) {
-            dockerExecuteOnKubernetes(script: script, containerMap: ContainerMap.instance.getMap().get(stageName) ?: [:]) {
-                deployment.run()
-            }
-        } else {
-            node(env.NODE_NAME) {
-                deployment.run()
-            }
-        }
+        deployment.run()
     }
 }
+
+void runDeployments(utils, parallelExecution, deployments) {
+    if (parallelExecution) {
+        parallel deployments
+    } else {
+        utils.runClosures(deployments)
+    }
+}
+
