@@ -128,7 +128,9 @@ void setDeployment(deployments, deployment, index) {
 void runDeployments(utils, parallelExecution, deployments) {
     echo "Executing deployments"
     if (parallelExecution) {
-        parallel deployments
+        parallel {
+          deployments
+        }
     } else {
         echo "Executing deployments in sequence"
         utils.runClosures(deployments)
