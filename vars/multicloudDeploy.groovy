@@ -59,7 +59,7 @@ void call(parameters = [:]) {
         ], config)
 
         def index = 1
-        def deployments = []
+        def deployments = [:]
 
         if (config.cfTargets) {
 
@@ -82,9 +82,7 @@ void call(parameters = [:]) {
                         deployTool: deployTool
                     )
                 }
-                deployments.push(deployment)
-                //deployments["Deployment ${index}"] = { deployment.run() }
-                //setDeployment(deployments, deployment, index)
+                deployments.put("Deployment ${index}", deployment)
                 index++
             }
         }
@@ -107,9 +105,7 @@ void call(parameters = [:]) {
                     )
 
                 }
-                deployments.push(deployment)
-                //deployments["Deployment ${index}"] = { deployment }
-                //setDeployment(deployments, deployment, index)
+                deployments.put("Deployment ${index}", deployment)
                 index++
             }
         }
@@ -122,14 +118,13 @@ void call(parameters = [:]) {
         echo "Executing deployments"
         if (config.parallelExecution) {
             echo "Executing deployments in parallel"
-            parallel {
-                deployments
-            }
+            parallel deployments
         } else {
             echo "Executing deployments in sequence"
-            Collections.shuffle(deployments)
-            for (int i = 0; i < deployments.size(); i++) {
-                Closure deployment = deployments[i]
+            def deploymentList = deployments.values().asList()
+            Collections.shuffle(deploymentList)
+            for (int i = 0; i < deploymentList.size(); i++) {
+                Closure deployment = deploymentList[i]
                 deployment()
             }
         }
