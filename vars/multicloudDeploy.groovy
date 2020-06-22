@@ -133,8 +133,7 @@ void runDeployments(utils, parallelExecution, deployments) {
         }
     } else {
         echo "Executing deployments in sequence"
-        def closuresToRun = deployments.values().asList()
-        Collections.shuffle(closuresToRun) // Shuffle the list so no one tries to rely on the order of execution
+        def closuresToRun = shuffle(deployments)
         for (int i = 0; i < closuresToRun.size(); i++) {
             runDeployment(closuresToRun[i] as Closure)
         }
@@ -142,6 +141,12 @@ void runDeployments(utils, parallelExecution, deployments) {
 }
 
 @NonCPS
+List<Closure> shuffle(deployments){
+        def closuresToRun = deployments.values().asList()
+        Collections.shuffle(closuresToRun)
+        return closuresToRun
+}
+
 void runDeployment(deployment) {
     deployment.run() 
 }
