@@ -59,7 +59,7 @@ void call(parameters = [:]) {
         ], config)
 
         def index = 1
-        HashMap<String, Closure> deployments = [:]
+        List<Closure> deployments = []
 
         if (config.cfTargets) {
 
@@ -82,8 +82,8 @@ void call(parameters = [:]) {
                         deployTool: deployTool
                     )
                 }
-                //deployments.push(deployment)
-                deployments["Deployment ${index}"] = { deployment.run() }
+                deployments.push(deployment)
+                //deployments["Deployment ${index}"] = { deployment.run() }
                 //setDeployment(deployments, deployment, index)
                 index++
             }
@@ -107,8 +107,8 @@ void call(parameters = [:]) {
                     )
 
                 }
-                deployments.add(deployment)
-                deployments["Deployment ${index}"] = { deployment }
+                deployments.push(deployment)
+                //deployments["Deployment ${index}"] = { deployment }
                 //setDeployment(deployments, deployment, index)
                 index++
             }
@@ -120,13 +120,14 @@ void call(parameters = [:]) {
 
         //runDeployments(utils, config.parallelExecution, deployments)
         echo "Executing deployments"
-        if (parallelExecution) {
+        if (config.parallelExecution) {
             echo "Executing deployments in parallel"
             parallel {
                 deployments
             }
         } else {
             echo "Executing deployments in sequence"
+            //deployments.shuffle()
             for (int i = 0; i < deployments.size(); i++) {
                 Closure deployment = deployments[i]
                 deployment()
