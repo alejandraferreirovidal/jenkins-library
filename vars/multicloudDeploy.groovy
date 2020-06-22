@@ -59,7 +59,7 @@ void call(parameters = [:]) {
         ], config)
 
         def index = 1
-        List<Closure> deployments = []
+        def deployments = []
 
         if (config.cfTargets) {
 
@@ -127,7 +127,7 @@ void call(parameters = [:]) {
             }
         } else {
             echo "Executing deployments in sequence"
-            //deployments.shuffle()
+            Collections.shuffle(deployments)
             for (int i = 0; i < deployments.size(); i++) {
                 Closure deployment = deployments[i]
                 deployment()
