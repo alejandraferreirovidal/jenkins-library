@@ -136,9 +136,12 @@ void runDeployments(utils, parallelExecution, deployments) {
         def closuresToRun = deployments.values().asList()
         Collections.shuffle(closuresToRun) // Shuffle the list so no one tries to rely on the order of execution
         for (int i = 0; i < closuresToRun.size(); i++) {
-            (closuresToRun[i] as Closure).run()
+            runDeployment(closuresToRun[i] as Closure)
         }
     }
 }
 
-
+@NonCPS
+void runDeployment(deployment) {
+    deployment.run() 
+}
