@@ -120,9 +120,7 @@ void call(parameters = [:]) {
 
 void setDeployment(deployments, deployment, index) {
     echo "Setting up deployments"
-    deployments["Deployment ${index}"] = {
-        deployment.run()
-    }
+    deployments["Deployment ${index}"] = { -> deployment }
 }
 
 void runDeployments(utils, parallelExecution, deployments) {
