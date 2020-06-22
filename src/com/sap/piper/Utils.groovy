@@ -23,20 +23,6 @@ def stash(name, include = '**/*.*', exclude = '', useDefaultExcludes = true) {
     steps.stash stashParams
 }
 
-@NonCPS
-def runClosures(Map closures) {
-
-    def closuresToRun = closures.values().asList()
-    Collections.shuffle(closuresToRun) // Shuffle the list so no one tries to rely on the order of execution
-    for (int i = 0; i < closuresToRun.size(); i++) {
-        runClosure(closuresToRun[i] as Closure)
-    }
-}
-
-def runClosure(closure) {
-  closure.run()
-}
-
 def stashList(script, List stashes) {
     for (def stash : stashes) {
         def name = stash.name
