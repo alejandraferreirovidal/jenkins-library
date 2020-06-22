@@ -59,7 +59,7 @@ void call(parameters = [:]) {
         ], config)
 
         def index = 1
-        def deployments = [:]
+        HashMap<String, Closure> deployments = [:]
 
         if (config.cfTargets) {
 
@@ -82,7 +82,9 @@ void call(parameters = [:]) {
                         deployTool: deployTool
                     )
                 }
-                setDeployment(deployments, deployment, index)
+                //deployments.push(deployment)
+                deployments["Deployment ${index}"] = { deployment.run() }
+                //setDeployment(deployments, deployment, index)
                 index++
             }
         }
@@ -105,7 +107,9 @@ void call(parameters = [:]) {
                     )
 
                 }
-                setDeployment(deployments, deployment, index)
+                deployments.add(deployment)
+                deployments["Deployment ${index}"] = { deployment }
+                //setDeployment(deployments, deployment, index)
                 index++
             }
         }
@@ -114,13 +118,21 @@ void call(parameters = [:]) {
             error "Deployment skipped because no targets defined!"
         }
 
-        runDeployments(utils, config.parallelExecution, deployments)
+        //runDeployments(utils, config.parallelExecution, deployments)
+        echo "Executing deployments"
+        if (parallelExecution) {
+            echo "Executing deployments in parallel"
+            parallel {
+                deployments
+            }
+        } else {
+            echo "Executing deployments in sequence"
+            for (int i = 0; i < deployments.size(); i++) {
+                Closure deployment = deployments[i]
+                deployment()
+            }
+        }
     }
-}
-
-void setDeployment(deployments, deployment, index) {
-    echo "Setting up deployments"
-    deployments["Deployment ${index}"] = { -> deployment }
 }
 
 void runDeployments(utils, parallelExecution, deployments) {
