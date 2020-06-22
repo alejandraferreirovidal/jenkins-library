@@ -119,15 +119,18 @@ void call(parameters = [:]) {
 }
 
 void setDeployment(deployments, deployment, index) {
+    echo "Setting up deployments"
     deployments["Deployment ${index}"] = {
         deployment.run()
     }
 }
 
 void runDeployments(utils, parallelExecution, deployments) {
+    echo "Executing deployments"
     if (parallelExecution) {
         parallel deployments
     } else {
+        echo "Executing deployments in sequence"
         utils.runClosures(deployments)
     }
 }
